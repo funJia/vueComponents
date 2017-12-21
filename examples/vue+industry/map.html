@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="./map/css/map.css">
+    <script src="http://libs.baidu.com/jquery/2.1.1/jquery.min.js"></script>
+    <script src="./map/js/vue.min.js"></script>
+    <script src="./map/js/data.js"></script>
+    <script src="./map/js/industrys.js"></script>
+    <script src="./map/js/map.js"></script>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=0QqolAuKtOQO2MafynHDOjQ3fh8PV81B"></script>
+    <script type="text/javascript" src="http://api.map.baidu.com/library/TextIconOverlay/1.2/src/TextIconOverlay_min.js"></script>
+    <script type="text/javascript" src="http://api.map.baidu.com/library/MarkerClusterer/1.2/src/MarkerClusterer_min.js"></script>    
+</head>
+
+<body>
+    <div id="map-container">      
+        <vue-area>
+        </vue-area>
+    </div>
+    <div id="allmap"></div>
+</body>
+
+</html>
+<script type="text/javascript">
+    var citys = "长沙";
+    var areas = "";
+    var industrys = "";
+    var markers = [];
+
+    var map = new BMap.Map("allmap");
+    var localSearch = new BMap.LocalSearch(map, {
+        renderOptions: {
+            pageCapacity: 8,
+            autoViewport: true,
+            selectFirstResult: false
+        }
+    });
+    localSearch.enableAutoViewport();
+
+    function postData(city, area, industry) {
+        if (area == null || area == "") {
+            localSearch.setSearchCompleteCallback(function (searchResult) {
+                var poi = searchResult.getPoi(0);
+                map.centerAndZoom(poi.point, 13);
+            });
+            localSearch.search(city);
+        } else {
+            localSearch.setSearchCompleteCallback(function (searchResult) {
+                var poi = searchResult.getPoi(0);
+                map.centerAndZoom(poi.point, 14);
+            });
+            localSearch.search(area);
+        }
+        map.enableScrollWheelZoom()
+        $.get("/bus/maplist?city=" + city + "&area=" + area + "&industryid=" + industry, function (res) {
+            for (var i = 0; i < res.data.length; i++) {
+                var point = new BMap.Point(res.data[i].lng, res.data[i].lat);
+                var marker = new BMap.Marker(point);
+                (function () {
+                    var thePoint = res.data[i];
+                    marker.addEventListener("click",
+                        //显示信息的方法
+                        function () {
+                            showInfo(this, thePoint);
+                        });
+                })();
+                markers.push(marker);
+            }
+            var markerClusterer = new BMapLib.MarkerClusterer(map, { markers: markers });
+        }, "json")
+    }
+    function showInfo(thisMarker, point) {
+        //获取点的信息
+        var sContent =
+            '<ul style="margin:0 0 5px 0;padding:0.2em 0">'
+            + '<li style="line-height: 26px;font-size: 15px;">'
+            + '<span style="width: 50px;display: inline-block;">id：</span>' + point.userId + '</li>'
+            + '<li style="line-height: 26px;font-size: 15px;">'
+            + '<span style="width: 50px;display: inline-block;">名称：</span>' + point.busName + '</li>'
+            + '<li style="line-height: 26px;font-size: 15px;"><span style="width: 50px;display: inline-block;">查看：</span><a href="">详情</a></li>'
+            + '</ul>';
+        var infoWindow = new BMap.InfoWindow(sContent); //创建信息窗口对象
+        thisMarker.openInfoWindow(infoWindow); //图片加载完后重绘infoWindow
+    }
+
+</script>
+    <script>
+        window.search = function (areaInfo, industryInfo) {
+            //省市区信息
+            console.log(areaInfo);
+            //行业信息
+            console.log(industryInfo);
+            
+            var city, area, industy;
+            city = areaInfo.cityName;
+            area = areaInfo.areaName;
+            industry = industryInfo.childIds;
+            if(!city)
+            {
+                alert("请选择城市");
+                return;
+            }
+            else if(!area)
+            {
+                alert("请选择区县");
+                return;
+            }
+
+            city=city.substr(0,city.length-1);
+            area=area.substr(0,area.length-1);
+            console.log(city,area,industry);
+            postData(city, area, industry);
+        }
+        postData('长沙', '','');        
+    </script>
